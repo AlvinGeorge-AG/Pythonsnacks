@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Random Path to Victory</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+        }
+        #grid {
+            display: grid;
+            gap: 5px;
+            justify-content: center;
+            margin: 20px auto;
+        }
+        .cell {
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            background-color: #ddd;
+            border: 1px solid #999;
+        }
+        .start { background-color: #4caf50; color: white; }
+        .goal { background-color: #f44336; color: white; }
+        .blocked { background-color: #000; }
+        .path { background-color: #ffeb3b; }
+        #controls {
+            margin-top: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+        button:disabled {
+            background-color: #ccc;
+        }
+        #scoreboard {
+            margin-top: 20px;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Random Path to Victory</h1>
+    <div id="scoreboard">Score: 0 | Level: 1</div>
+    <div id="grid"></div>
+    <div id="controls">
+        <button id="start-game">Start Game</button>
+        <button id="find-path" disabled>Find Random Path</button>
+    </div>
+    <p id="message"></p>
+
+    <script>
+        const gridContainer = document.getElementById('grid');
+        const message = document.getElementById('message');
+        const findPathButton = document.getElementById('find-path');
+        const startGameButton = document.getElementById('start-game');
+        const scoreboard = document.getElementById('scoreboard');
+
+        let gridSize = 5; // Initial grid size
+        let grid = [];
+        let start, goal;
+        let score = 0;
+        let level = 1;
+
+        const directions = [
+            { row: -1, col: 0 }, // Up
+            { row: 1, col: 0 },  // Down
+            { row: 0, col: -1 }, // Left
+            { row: 0, col: 1 }   // Right
+        ];
+
+        function createGrid() {
+            gridContainer.innerHTML = '';
+            grid.length = 0;
+            gridContainer.style.gridTemplateColumns = `repeat(${gridSize}, 50px)`;
+
+            for (let row = 0; row < gridSize; row++) {
+                const gridRow = [];
+                for (let col = 0; col < gridSize; col++) {
+                    const cell = document.createElement('div');
+                    cell.classList.add('cell');
+                    gridContainer.appendChild(cell);
+                    gridRow.push({ element: cell, type: 'open' });
+                }
+                grid.push(gridRow);
+            }
+
+            setStartAndGoal();
+            placeBlockedCells();
+        }
+
+        function setStartAndGoal() {
+            start = { row: 0, col: 0 };
+            goal = { row: gridSize - 1, col: gridSize - 1 };
+
+            grid[start.row][start.col].type = 'start';
+            grid[start.row][start.col].element.classList.add('start');
+            grid[goal.row][goal.col].type = 'goal';
+            grid[goal.row][goal.col].element.classList.add('goal');
+        }
+
+        function placeBlockedCells() {
+            const blockedCellsCount = Math.floor((gridSize * gridSize) / 4);
+
+            for (let i = 0; i < blockedCellsCount; i++) {
+                const row = Math.floor(Math.random() * gridSize);
+                const col = Math.floor(Math.random() * gridSize);
+
+                if (grid[row][col].type === 'open' && !(row === start.row && col === start.col) && !(row === goal.row && col === goal.col)) {
+                    grid[row][col].type = 'blocked';
+                    grid[row][col].element.classList.add('blocked');
+                }
+            }
+        }
+
+        function highlightPath(path) {
+            for (const position of path) {
+                const cell = grid[position.row][position.col];
+                if (cell.type !== 'start' && cell.type !== 'goal') {
+                    cell.element.classList.add('path');
+                }
+            }
+        }
+
+        function updateScore(steps) {
+            const points = Math.max(0, (gridSize * 2) - steps);
+            score += points;
+
+            if (score >= level * 10) {
+                levelUp();
+            }
+            updateScoreboard();
+        }
+
+        function updateScoreboard() {
+            scoreboard.textContent = `Score: ${score} | Level: ${level}`;
+        }
+
+        function levelUp() {
+            level++;
+            gridSize++;
+            message.textContent = `Level up! Grid size increased to ${gridSize}x${gridSize}.`;
+            createGrid();
+        }
+
+        function findRandomPath() {
+            let current = { ...start };
+            const path = [];
+
+            while (current.row !== goal.row || current.col !== goal.col) {
+                path.push(current);
+
+                const validMoves = directions.filter(({ row, col }) => {
+                    const newRow = current.row + row;
+                    const newCol = current.col + col;
+
+                    return (
+                        newRow >= 0 &&
+                        newRow < gridSize &&
+                        newCol >= 0 &&
+                        newCol < gridSize &&
+                        grid[newRow][newCol].type !== 'blocked'
+                    );
+                });
+
+                if (validMoves.length === 0) {
+                    message.textContent = 'No valid path found! Try again.';
+                    return;
+                }
+
+                const randomMove = validMoves[Math.floor(Math.random() * validMoves.length)];
+                current = { row: current.row + randomMove.row, col: current.col + randomMove.col };
+            }
+
+            path.push(goal);
+            message.textContent = `Path found in ${path.length - 1} steps!`;
+            highlightPath(path);
+            updateScore(path.length - 1);
+        }
+
+        startGameButton.addEventListener('click', () => {
+            createGrid();
+            message.textContent = 'Game started! Click "Find Random Path".';
+            findPathButton.disabled = false;
+        });
+
+        findPathButton.addEventListener('click', findRandomPath);
+    </script>
+</body>
+</html>
